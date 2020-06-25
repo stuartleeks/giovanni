@@ -16,7 +16,13 @@ const PathResourceFile PathResource = "file"
 const PathResourceDirectory PathResource = "directory"
 
 type CreateInput struct {
-	Resource PathResource
+	// A map of base64-encoded strings to store as user-defined properties with the File System
+	// Note that items may only contain ASCII characters in the ISO-8859-1 character set.
+	// This automatically gets converted to a comma-separated list of name and
+	// value pairs before sending to the API
+	Properties map[string]string
+	Resource   PathResource
+	Content    *[]byte
 }
 
 // Create creates a Data Lake Store Gen2 Path within a Storage Account
@@ -57,7 +63,8 @@ func (client Client) CreatePreparer(ctx context.Context, accountName string, fil
 	}
 
 	queryParameters := map[string]interface{}{
-		"resource": autorest.Encode("query", input.Resource),
+		"x-ms-properties": buildProperties(input.Properties),
+		"resource":        autorest.Encode("query", input.Resource),
 	}
 
 	headers := map[string]interface{}{
@@ -66,6 +73,8 @@ func (client Client) CreatePreparer(ctx context.Context, accountName string, fil
 
 	preparer := autorest.CreatePreparer(
 		autorest.AsPut(),
+		autorest.AsOctetStream(),
+		autorest.WithBytes(input.Content),
 		autorest.WithBaseURL(endpoints.GetDataLakeStoreEndpoint(client.BaseURI, accountName)),
 		autorest.WithPathParameters("/{fileSystemName}/{path}", pathParameters),
 		autorest.WithQueryParameters(queryParameters),
@@ -93,5 +102,3 @@ func (client Client) CreateResponder(resp *http.Response) (result autorest.Respo
 
 	return
 }
-
-

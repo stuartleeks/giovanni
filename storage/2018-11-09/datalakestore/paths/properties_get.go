@@ -2,8 +2,8 @@ package paths
 
 import (
 	"context"
+	"log"
 	"net/http"
-	"strings"
 
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure"
@@ -20,8 +20,7 @@ type GetPropertiesResponse struct {
 	// value pairs before sending to the API
 	Properties map[string]string
 
-	// Is Hierarchical Namespace Enabled?
-	NamespaceEnabled bool
+	ResourceType PathResource
 }
 
 // GetProperties gets the properties for a Data Lake Store Gen2 Path in a FileSystem within a Storage Account
@@ -61,6 +60,11 @@ func (client Client) GetPropertiesPreparer(ctx context.Context, accountName stri
 		"path":           autorest.Encode("path", path),
 	}
 
+	queryParameters := map[string]interface{}{
+		// "action": autorest.Encode("query", "getAccessControl"),
+		"action": autorest.Encode("query", "getStatus"),
+	}
+
 	headers := map[string]interface{}{
 		"x-ms-version": APIVersion,
 	}
@@ -69,6 +73,7 @@ func (client Client) GetPropertiesPreparer(ctx context.Context, accountName stri
 		autorest.AsHead(),
 		autorest.WithBaseURL(endpoints.GetDataLakeStoreEndpoint(client.BaseURI, accountName)),
 		autorest.WithPathParameters("/{fileSystemName}/{path}", pathParameters),
+		autorest.WithQueryParameters(queryParameters),
 		autorest.WithHeaders(headers))
 
 	return preparer.Prepare((&http.Request{}).WithContext(ctx))
@@ -92,11 +97,19 @@ func (client Client) GetPropertiesResponder(resp *http.Response) (result GetProp
 		if err != nil {
 			return
 		}
-
 		result.Properties = *properties
-		result.NamespaceEnabled = strings.EqualFold(resp.Header.Get("x-ms-namespace-enabled"), "tru")
-	}
 
+		resourceTypeRaw := resp.Header.Get("x-ms-resource-type")
+		var resourceType PathResource
+		if resourceTypeRaw != "" {
+			resourceType, err = parsePathResource(resourceTypeRaw)
+			if err != nil {
+				return
+			}
+			result.ResourceType = resourceType
+		}
+	}
+	log.Printf("*****: %v\n", resp)
 	err = autorest.Respond(
 		resp,
 		client.ByInspecting(),

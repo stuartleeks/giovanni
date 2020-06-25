@@ -38,3 +38,13 @@ func parseProperties(input string) (*map[string]string, error) {
 	}
 	return &properties, nil
 }
+
+func parsePathResource(input string) (PathResource, error) {
+	switch input {
+	case "file":
+		return PathResourceFile, nil
+	case "directory":
+		return PathResourceDirectory, nil
+	}
+	return "", fmt.Errorf("Unhandled path resource type %q", input)
+}
